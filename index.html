@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <title>Tính hiệu suất sản xuất</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; background: #f9f9f9; }
     h2 { color: #333; }
-    label { display: block; margin-top: 12px; font-weight: bold; }
-    input, select { padding: 6px; width: 220px; margin-top: 4px; }
-    button { margin-top: 16px; padding: 10px 20px; background: #4CAF50; border: none; color: white; cursor: pointer; font-size: 16px; }
-    button:hover { background: #45a049; }
-    .result { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #ccc; width: fit-content; }
+    label { display:block; margin-top:12px; font-weight:600; }
+    input, select { padding:6px; width:220px; margin-top:4px; }
+    button { margin-top:16px; padding:10px 20px; background:#4CAF50; border:none; color:#fff; cursor:pointer; }
+    .small { font-size:0.9em; color:#555; margin-top:6px; }
+    .result { margin-top:20px; padding:15px; background:#fff; border:1px solid #ccc; width:fit-content; }
   </style>
 </head>
 <body>
@@ -22,36 +22,36 @@
     <option value="sanLuong">Sản lượng cần đạt</option>
   </select>
 
-  <form id="calcForm">
-    <!-- chỉ hiện khi chọn tính hiệu suất -->
+  <div>
     <div id="input-sanLuong">
       <label>Sản lượng (output thực tế):</label>
-      <input type="number" id="sanLuong">
+      <input type="number" id="sanLuong" min="0" step="1">
     </div>
 
-    <!-- chỉ hiện khi chọn tính sản lượng -->
     <div id="input-hieuSuat">
       <label>Hiệu suất mong muốn (%):</label>
-      <input type="number" id="hieuSuat">
+      <input type="number" id="hieuSuat" min="0" step="0.01">
     </div>
 
-    <label>SAM (phút):</label>
-    <input type="number" id="sam">
+    <label>SAM (phút / sản phẩm):</label>
+    <input type="number" id="sam" min="0" step="0.01">
 
     <label>Số người đi làm:</label>
-    <input type="number" id="people">
+    <input type="number" id="people" min="0" step="1">
 
     <label>Số giờ thai sản:</label>
-    <input type="number" id="maternity">
+    <input type="number" id="maternity" min="0" step="0.01">
 
     <label>Số giờ được trừ:</label>
-    <input type="number" id="deduct">
+    <input type="number" id="deduct" min="0" step="0.01">
 
     <label>Số giờ tăng ca:</label>
-    <input type="number" id="overtime">
+    <input type="number" id="overtime" min="0" step="0.01">
+
+    <div class="small">Tổng số giờ làm (tính tự động): <span id="totalHoursDisplay">-</span></div>
 
     <button type="button" onclick="calculate()">Tính toán</button>
-  </form>
+  </div>
 
   <div class="result" id="result"></div>
 
@@ -61,54 +61,70 @@
       document.getElementById("input-sanLuong").style.display = (type === "hieuSuat") ? "block" : "none";
       document.getElementById("input-hieuSuat").style.display = (type === "sanLuong") ? "block" : "none";
       document.getElementById("result").innerHTML = "";
+      updateTotalHoursDisplay();
     }
+
+    function getNumber(id, defaultVal=0) {
+      const v = parseFloat(document.getElementById(id).value);
+      return Number.isFinite(v) ? v : defaultVal;
+    }
+
+    function updateTotalHoursDisplay() {
+      const people = getNumber('people', 0);
+      const maternity = getNumber('maternity', 0);
+      const deduct = getNumber('deduct', 0);
+      const overtime = getNumber('overtime', 0);
+      const totalHours = (people * 8) + overtime - maternity - deduct;
+      document.getElementById('totalHoursDisplay').textContent = (totalHours > 0) ? totalHours.toFixed(2) + ' giờ' : 'Không hợp lệ';
+      return totalHours;
+    }
+
+    // cập nhật hiển thị tổng giờ khi thay input
+    ['people','maternity','deduct','overtime'].forEach(id=>{
+      document.getElementById(id).addEventListener('input', updateTotalHoursDisplay);
+    });
 
     function calculate() {
       const type = document.getElementById("calcType").value;
-      const sam = parseFloat(document.getElementById("sam").value);
-      const people = parseFloat(document.getElementById("people").value);
-      const maternity = parseFloat(document.getElementById("maternity").value) || 0;
-      const deduct = parseFloat(document.getElementById("deduct").value) || 0;
-      const overtime = parseFloat(document.getElementById("overtime").value) || 0;
+      const sam = getNumber('sam', 0);
+      const people = getNumber('people', 0);
+      const maternity = getNumber('maternity', 0);
+      const deduct = getNumber('deduct', 0);
+      const overtime = getNumber('overtime', 0);
 
       if (sam <= 0 || people <= 0) {
-        document.getElementById("result").innerHTML = "⚠️ Vui lòng nhập số hợp lệ.";
+        document.getElementById("result").innerHTML = "⚠️ Vui lòng nhập SAM và số người hợp lệ.";
         return;
       }
 
-      // công thức tính số giờ làm việc (thêm tăng ca)
-      const hours = (people * 8) - maternity - deduct + overtime;
-      if (hours <= 0) {
-        document.getElementById("result").innerHTML = "⚠️ Số giờ làm việc không hợp lệ.";
+      const totalHours = (people * 8) + overtime - maternity - deduct;
+      if (totalHours <= 0) {
+        document.getElementById("result").innerHTML = "⚠️ Tổng số giờ làm việc không hợp lệ (<= 0).";
         return;
       }
 
-      if (type === "hieuSuat") {
-        const sanLuong = parseFloat(document.getElementById("sanLuong").value);
+      const totalMinutes = totalHours * 60;
+
+      if (type === 'hieuSuat') {
+        const sanLuong = getNumber('sanLuong', -1);
         if (sanLuong <= 0) {
-          document.getElementById("result").innerHTML = "⚠️ Vui lòng nhập sản lượng.";
+          document.getElementById("result").innerHTML = "⚠️ Vui lòng nhập sản lượng hợp lệ.";
           return;
         }
-        const hieuSuat = (sanLuong * sam) / (people * hours * 60) * 100;
-        document.getElementById("result").innerHTML = `
-          <p>Số giờ làm việc thực tế: <b>${hours.toFixed(2)}</b></p>
-          <p><b>Hiệu suất: ${hieuSuat.toFixed(2)}%</b></p>
-        `;
+        const hieuSuat = (sanLuong * sam) / totalMinutes * 100;
+        document.getElementById("result").innerHTML = `<p><b>Hiệu suất: ${hieuSuat.toFixed(2)}%</b></p>`;
       } else {
-        const hieuSuat = parseFloat(document.getElementById("hieuSuat").value);
+        const hieuSuat = getNumber('hieuSuat', -1);
         if (hieuSuat <= 0) {
-          document.getElementById("result").innerHTML = "⚠️ Vui lòng nhập hiệu suất.";
+          document.getElementById("result").innerHTML = "⚠️ Vui lòng nhập hiệu suất hợp lệ.";
           return;
         }
-        const sanLuong = (hieuSuat / 100) * (people * hours * 60) / sam;
-        document.getElementById("result").innerHTML = `
-          <p>Số giờ làm việc thực tế: <b>${hours.toFixed(2)}</b></p>
-          <p><b>Sản lượng cần đạt: ${sanLuong.toFixed(0)}</b></p>
-        `;
+        const sanLuong = (hieuSuat / 100) * totalMinutes / sam;
+        document.getElementById("result").innerHTML = `<p><b>Sản lượng cần đạt: ${Math.round(sanLuong)}</b></p>`;
       }
     }
 
-    // mặc định hiển thị tính hiệu suất
+    // khởi tạo
     toggleInputs();
   </script>
 </body>
